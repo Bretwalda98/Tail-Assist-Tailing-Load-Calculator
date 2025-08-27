@@ -11,6 +11,10 @@
     .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
     @media print{.no-print{display:none!important} .card{box-shadow:none;border:1px solid #999}}
     canvas{image-rendering: crisp-edges}
+
+    /* --- SWL over-limit flags --- */
+    .bad{background:#dc2626;color:#fff;border-radius:.375rem;padding:0 .35rem}
+    .badcell{background:#dc2626;color:#fff;font-weight:600}
   </style>
 </head>
 <body class="bg-zinc-50 text-zinc-900">
@@ -19,7 +23,7 @@
     <header class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">TailAssist – Tailing Load Calculator</h1>
-        <p class="text-sm text-zinc-600">Angle‑driven split of load between Maincrane and Tailcrane, with live geometry.</p>
+        <p class="text-sm text-zinc-600">Angle-driven split of load between Maincrane and Tailcrane, with live geometry.</p>
       </div>
       <button id="printBtn" class="no-print rounded-xl px-4 py-2 text-sm bg-zinc-900 text-white hover:bg-black">Print / PDF</button>
     </header>
@@ -113,7 +117,7 @@
           <h2 class="text-lg font-semibold mb-3">Current Angle Results</h2>
           <div class="grid sm:grid-cols-3 gap-4 text-sm">
             <div class="space-y-1">
-              <div class="text-zinc-500">Hook‑to‑Hook distance</div>
+              <div class="text-zinc-500">Hook-to-Hook distance</div>
               <div class="font-semibold"><span id="h2h_m">0.000</span> m  ·  <span id="h2h_ft">0.000</span> ft</div>
             </div>
             <div class="space-y-1">
@@ -167,26 +171,20 @@
   </div>
 
 <script>
-// --- Core math exactly per sheet logic ---
-// kip conversion (t -> kip)
+// --- Core math ---
 const T2KIP = 1/0.45359237; // ≈ 2.20462
 const M2FT = 3.280839895;   // m → ft
-
 function sum(arr){ return arr.reduce((a,b)=>a + (Number(b)||0), 0); }
 function rad(deg){ return deg * Math.PI/180; }
 
 function calcAtAngle(deg, p){
   const c = Math.cos(rad(deg));
   const s = Math.sin(rad(deg));
-  // Hook-to-hook distance [m]
-  const h2h = c*p.Ltr + s*p.offset; // Bxx formula
-  // Maincrane load [t]
+  const h2h = c*p.Ltr + s*p.offset;
   const numerator = p.W * (c*p.Lcg + s*p.offset);
   const denominator = (c*p.Ltr) + (s*p.offset);
-  const main = (numerator/denominator) + p.m_total; // Dxx formula
-  // Tailcrane load [t]
-  const tail = p.W - main + p.t_total + p.m_total; // Gxx formula
-  // Percentages of SWL
+  const main = (numerator/denominator) + p.m_total;
+  const tail = p.W - main + p.t_total + p.m_total;
   const mainPct = (main / p.SWL_main) * 100;
   const tailPct = (tail / p.SWL_tail) * 100;
   return {deg, h2h, main, tail, mainPct, tailPct};
@@ -222,6 +220,14 @@ function getParams(){
   return p;
 }
 
+// --- helpers for flags ---
+function flagPct(el, pct){
+  if(!el) return;
+  const over = pct > 100;       // flag strictly over 100%
+  el.classList.toggle('bad', over);
+  if(over) el.setAttribute('title','Over SWL'); else el.removeAttribute('title');
+}
+
 function sweepAngles(p, step){
   const out = [];
   for(let deg=0; deg<=90; deg+=step){ out.push(calcAtAngle(deg, p)); }
@@ -241,6 +247,9 @@ function updateCurrent(p){
   document.getElementById('tail_kip').textContent = (r.tail*T2KIP).toFixed(3);
   document.getElementById('main_pct').textContent = r.mainPct.toFixed(1);
   document.getElementById('tail_pct').textContent = r.tailPct.toFixed(1);
+  // flag current % cells
+  flagPct(document.getElementById('main_pct'), r.mainPct);
+  flagPct(document.getElementById('tail_pct'), r.tailPct);
   drawGeometry(p, r);
 }
 
@@ -249,26 +258,36 @@ function updateTableAndMax(p){
   const list = sweepAngles(p, step);
   const tb = document.getElementById('tableBody');
   tb.innerHTML = '';
-  let mainMax = -Infinity, tailMax = -Infinity;
+  let mainMax = -Infinity, tailMax = -Infinity, mainMaxPct=0, tailMaxPct=0;
+
   list.forEach(r => {
-    mainMax = Math.max(mainMax, r.main);
-    tailMax = Math.max(tailMax, r.tail);
+    if(r.main>mainMax){ mainMax=r.main; mainMaxPct=r.mainPct; }
+    if(r.tail>tailMax){ tailMax=r.tail; tailMaxPct=r.tailPct; }
+
     const tr = document.createElement('tr');
     tr.className = 'border-b hover:bg-zinc-50';
-    tr.innerHTML = `
+
+    const tds = `
       <td class="py-1.5 pr-3">${r.deg.toFixed(0)}</td>
       <td class="py-1.5 pr-3">${r.h2h.toFixed(3)}</td>
       <td class="py-1.5 pr-3">${r.main.toFixed(3)}</td>
-      <td class="py-1.5 pr-3">${r.mainPct.toFixed(1)}</td>
+      <td class="py-1.5 pr-3 ${r.mainPct>100?'badcell':''}">${r.mainPct.toFixed(1)}</td>
       <td class="py-1.5 pr-3">${r.tail.toFixed(3)}</td>
-      <td class="py-1.5 pr-3">${r.tailPct.toFixed(1)}</td>`;
+      <td class="py-1.5 pr-3 ${r.tailPct>100?'badcell':''}">${r.tailPct.toFixed(1)}</td>`;
+    tr.innerHTML = tds;
+
     tr.addEventListener('click',()=>{ document.getElementById('angle').value = r.deg; updateAll(); });
     tb.appendChild(tr);
   });
+
   document.getElementById('main_max').textContent = mainMax.toFixed(3);
   document.getElementById('tail_max').textContent = tailMax.toFixed(3);
   document.getElementById('main_max_pct').textContent = ((mainMax / p.SWL_main)*100).toFixed(1);
   document.getElementById('tail_max_pct').textContent = ((tailMax / p.SWL_tail)*100).toFixed(1);
+  // flag max % cells
+  flagPct(document.getElementById('main_max_pct'), (mainMax / p.SWL_main)*100);
+  flagPct(document.getElementById('tail_max_pct'), (tailMax / p.SWL_tail)*100);
+
   drawCharts(list);
 }
 
@@ -282,17 +301,14 @@ function drawLineChart(canvas, pts, title){
   const ctx = canvas.getContext('2d');
   const W = canvas.width = canvas.clientWidth; const H = canvas.height;
   ctx.clearRect(0,0,W,H);
-  // margins
   const m = {l:40, r:10, t:20, b:26};
   const xMin = 0, xMax = 90;
   const yMin = 0, yMax = Math.max(...pts.map(p=>p.y))*1.1 || 1;
-  // axes
   ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(m.l, H-m.b); ctx.lineTo(W-m.r, H-m.b); // x
-  ctx.moveTo(m.l, H-m.b); ctx.lineTo(m.l, m.t); // y
+  ctx.moveTo(m.l, H-m.b); ctx.lineTo(W-m.r, H-m.b);
+  ctx.moveTo(m.l, H-m.b); ctx.lineTo(m.l, m.t);
   ctx.stroke();
-  // ticks
   ctx.font = '11px ui-sans-serif, system-ui, -apple-system'; ctx.fillStyle = '#111';
   for(let x=0;x<=90;x+=15){
     const X = m.l + (x-xMin)/(xMax-xMin)*(W-m.l-m.r);
@@ -306,9 +322,7 @@ function drawLineChart(canvas, pts, title){
     ctx.beginPath(); ctx.moveTo(m.l-4,Y); ctx.lineTo(m.l,Y); ctx.stroke();
     ctx.fillText(y.toFixed(0), m.l-34, Y+4);
   }
-  // title
   ctx.fillText(title, m.l, m.t-6);
-  // line
   ctx.beginPath();
   pts.forEach((p,i)=>{
     const X = m.l + (p.x-xMin)/(xMax-xMin)*(W-m.l-m.r);
@@ -325,39 +339,31 @@ function drawGeometry(p, r){
   const W = cv.width = cv.clientWidth; const H = cv.height;
   ctx.clearRect(0,0,W,H);
 
-  // world scale: compress lengths into canvas nicely
   const maxAxis = Math.max(p.Ltr*1.15, p.Lcg*1.15, 10);
-  const scale = (W*0.75)/maxAxis; // px per metre
+  const scale = (W*0.75)/maxAxis;
 
-  // anchor Taillug at right
   const anchor = {x: W-60, y: H/2};
   const ang = rad(r.deg);
-  const ux = -Math.cos(ang), uy = -Math.sin(ang); // axis unit vector from Taillug towards vessel left
-  const vx = -uy, vy = ux;                         // normal (upward from centreline)
+  const ux = -Math.cos(ang), uy = -Math.sin(ang);
+  const vx = -uy, vy = ux;
 
-  // draw base reference (grey, horizontal)
   ctx.setLineDash([6,6]);
   ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(anchor.x - p.Ltr*scale, anchor.y); ctx.lineTo(anchor.x + 40, anchor.y); // ref centreline
+  ctx.moveTo(anchor.x - p.Ltr*scale, anchor.y); ctx.lineTo(anchor.x + 40, anchor.y);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // dashed red centreline current
   ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.setLineDash([5,5]);
   ctx.beginPath();
   ctx.moveTo(anchor.x, anchor.y);
   ctx.lineTo(anchor.x + ux*(p.Ltr+1)*scale, anchor.y + uy*(p.Ltr+1)*scale);
   ctx.stroke(); ctx.setLineDash([]);
 
-  // draw cylinder body (simple rectangle with rounded nose)
   const radius = Math.max(0.6*scale, p.offset*scale*0.8);
-  const Lbody = p.Ltr + 0.3*p.Ltr; // visual extension
-  // side edges
+  const Lbody = p.Ltr + 0.3*p.Ltr;
   ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
-  ctx.beginPath();
   const nose = {x: anchor.x + ux*Lbody*scale, y: anchor.y + uy*Lbody*scale};
-  // body outline (thin grey)
   ctx.strokeStyle = '#d1d5db';
   ctx.beginPath();
   ctx.moveTo(anchor.x + vx*radius, anchor.y + vy*radius);
@@ -366,7 +372,6 @@ function drawGeometry(p, r){
   ctx.lineTo(anchor.x - vx*radius, anchor.y - vy*radius);
   ctx.stroke();
 
-  // taillug triangle (schematic)
   ctx.strokeStyle = '#111';
   ctx.beginPath();
   const lugA = {x: anchor.x, y: anchor.y};
@@ -374,7 +379,6 @@ function drawGeometry(p, r){
   const lugC = {x: anchor.x - vx*radius*0.9, y: anchor.y - vy*radius*0.9};
   ctx.moveTo(lugA.x,lugA.y); ctx.lineTo(lugB.x,lugB.y); ctx.lineTo(lugC.x,lugC.y); ctx.closePath(); ctx.stroke();
 
-  // markers: Trunnions (●) and C.o.G (◉)
   const P_tr = {x: anchor.x + ux*p.Ltr*scale, y: anchor.y + uy*p.Ltr*scale};
   const P_cg = {x: anchor.x + ux*p.Lcg*scale, y: anchor.y + uy*p.Lcg*scale};
 
@@ -382,18 +386,15 @@ function drawGeometry(p, r){
   ctx.beginPath(); ctx.arc(P_tr.x,P_tr.y,4,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,2,0,Math.PI*2); ctx.fill();
 
-  // dimension: Hook→Hook (from anchor to trunnions projected along axis)
   ctx.strokeStyle = '#64748b'; ctx.setLineDash([3,3]);
   ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(P_tr.x,P_tr.y); ctx.stroke(); ctx.setLineDash([]);
 
-  // angle arc
   const arcR = 40; ctx.strokeStyle = '#111';
   ctx.beginPath(); ctx.arc(anchor.x, anchor.y, arcR, 0, -ang, ang<0);
   ctx.stroke();
   ctx.font = '12px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
   ctx.fillText(`${r.deg.toFixed(0)}°`, anchor.x + 8, anchor.y - 8);
 
-  // labels
   ctx.font = '11px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
   ctx.fillText('Taillug', anchor.x+6, anchor.y+14);
   ctx.fillText('Trunnions', P_tr.x-30, P_tr.y-8);
@@ -411,9 +412,7 @@ function updateAll(){
   .forEach(id => document.getElementById(id).addEventListener('input', updateAll));
 
 document.getElementById('angle').addEventListener('input', ()=>{ updateCurrent(getParams()); });
-
 document.getElementById('recalc').addEventListener('click', updateAll);
-
 document.getElementById('printBtn').addEventListener('click', ()=>window.print());
 
 // init
