@@ -11,8 +11,7 @@
     .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
     @media print{.no-print{display:none!important} .card{box-shadow:none;border:1px solid #999}}
     canvas{image-rendering: crisp-edges}
-
-    /* --- SWL over-limit flags --- */
+    /* SWL over-limit flags */
     .bad{background:#dc2626;color:#fff;border-radius:.375rem;padding:0 .35rem}
     .badcell{background:#dc2626;color:#fff;font-weight:600}
   </style>
@@ -171,7 +170,7 @@
   </div>
 
 <script>
-// --- Core math ---
+// --- Core maths ---
 const T2KIP = 1/0.45359237; // ≈ 2.20462
 const M2FT = 3.280839895;   // m → ft
 function sum(arr){ return arr.reduce((a,b)=>a + (Number(b)||0), 0); }
@@ -180,7 +179,7 @@ function rad(deg){ return deg * Math.PI/180; }
 function calcAtAngle(deg, p){
   const c = Math.cos(rad(deg));
   const s = Math.sin(rad(deg));
-  const h2h = c*p.Ltr + s*p.offset;
+  const h2h = c*p.Ltr + s*p.offset; // hook-to-hook projection
   const numerator = p.W * (c*p.Lcg + s*p.offset);
   const denominator = (c*p.Ltr) + (s*p.offset);
   const main = (numerator/denominator) + p.m_total;
@@ -223,7 +222,7 @@ function getParams(){
 // --- helpers for flags ---
 function flagPct(el, pct){
   if(!el) return;
-  const over = pct > 100;       // flag strictly over 100%
+  const over = pct > 100;  // strictly over 100%
   el.classList.toggle('bad', over);
   if(over) el.setAttribute('title','Over SWL'); else el.removeAttribute('title');
 }
@@ -247,7 +246,6 @@ function updateCurrent(p){
   document.getElementById('tail_kip').textContent = (r.tail*T2KIP).toFixed(3);
   document.getElementById('main_pct').textContent = r.mainPct.toFixed(1);
   document.getElementById('tail_pct').textContent = r.tailPct.toFixed(1);
-  // flag current % cells
   flagPct(document.getElementById('main_pct'), r.mainPct);
   flagPct(document.getElementById('tail_pct'), r.tailPct);
   drawGeometry(p, r);
@@ -258,35 +256,33 @@ function updateTableAndMax(p){
   const list = sweepAngles(p, step);
   const tb = document.getElementById('tableBody');
   tb.innerHTML = '';
-  let mainMax = -Infinity, tailMax = -Infinity, mainMaxPct=0, tailMaxPct=0;
+  let mainMax = -Infinity, tailMax = -Infinity;
 
   list.forEach(r => {
-    if(r.main>mainMax){ mainMax=r.main; mainMaxPct=r.mainPct; }
-    if(r.tail>tailMax){ tailMax=r.tail; tailMaxPct=r.tailPct; }
+    mainMax = Math.max(mainMax, r.main);
+    tailMax = Math.max(tailMax, r.tail);
 
     const tr = document.createElement('tr');
     tr.className = 'border-b hover:bg-zinc-50';
-
-    const tds = `
+    tr.innerHTML = `
       <td class="py-1.5 pr-3">${r.deg.toFixed(0)}</td>
       <td class="py-1.5 pr-3">${r.h2h.toFixed(3)}</td>
       <td class="py-1.5 pr-3">${r.main.toFixed(3)}</td>
       <td class="py-1.5 pr-3 ${r.mainPct>100?'badcell':''}">${r.mainPct.toFixed(1)}</td>
       <td class="py-1.5 pr-3">${r.tail.toFixed(3)}</td>
       <td class="py-1.5 pr-3 ${r.tailPct>100?'badcell':''}">${r.tailPct.toFixed(1)}</td>`;
-    tr.innerHTML = tds;
-
     tr.addEventListener('click',()=>{ document.getElementById('angle').value = r.deg; updateAll(); });
     tb.appendChild(tr);
   });
 
   document.getElementById('main_max').textContent = mainMax.toFixed(3);
   document.getElementById('tail_max').textContent = tailMax.toFixed(3);
-  document.getElementById('main_max_pct').textContent = ((mainMax / p.SWL_main)*100).toFixed(1);
-  document.getElementById('tail_max_pct').textContent = ((tailMax / p.SWL_tail)*100).toFixed(1);
-  // flag max % cells
-  flagPct(document.getElementById('main_max_pct'), (mainMax / p.SWL_main)*100);
-  flagPct(document.getElementById('tail_max_pct'), (tailMax / p.SWL_tail)*100);
+  const mainMaxPct = ((mainMax / p.SWL_main)*100);
+  const tailMaxPct = ((tailMax / p.SWL_tail)*100);
+  document.getElementById('main_max_pct').textContent = mainMaxPct.toFixed(1);
+  document.getElementById('tail_max_pct').textContent = tailMaxPct.toFixed(1);
+  flagPct(document.getElementById('main_max_pct'), mainMaxPct);
+  flagPct(document.getElementById('tail_max_pct'), tailMaxPct);
 
   drawCharts(list);
 }
@@ -333,70 +329,87 @@ function drawLineChart(canvas, pts, title){
 }
 
 // --- Geometry canvas ---
+// PIVOT = TAILLUG (fixed). Centreline right end = pivot - v * offset.
 function drawGeometry(p, r){
   const cv = document.getElementById('geom');
   const ctx = cv.getContext('2d');
   const W = cv.width = cv.clientWidth; const H = cv.height;
   ctx.clearRect(0,0,W,H);
 
+  // scaling
   const maxAxis = Math.max(p.Ltr*1.15, p.Lcg*1.15, 10);
   const scale = (W*0.75)/maxAxis;
 
-  const anchor = {x: W-60, y: H/2};
-  const ang = rad(r.deg);
-  const ux = -Math.cos(ang), uy = -Math.sin(ang);
-  const vx = -uy, vy = ux;
+  // fixed taillug pivot near the right
+  const pivot = {x: W-60, y: H/2};
 
+  // unit vectors for current angle
+  const ang = rad(r.deg);
+  const ux = -Math.cos(ang), uy = -Math.sin(ang);   // along centreline (leftwards)
+  const vx = -uy,           vy =  ux;               // normal (+v is "up" from centreline)
+
+  // centreline right end (the point the body axis passes through)
+  const baseEnd = { x: pivot.x - vx*p.offset*scale, y: pivot.y - vy*p.offset*scale };
+
+  // grey reference centreline at 0°
+  const vx0 = 0, vy0 = -1; // normal at 0°
+  const baseEnd0 = { x: pivot.x - vx0*p.offset*scale, y: pivot.y - vy0*p.offset*scale }; // y = pivot.y + offset
   ctx.setLineDash([6,6]);
   ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(anchor.x - p.Ltr*scale, anchor.y); ctx.lineTo(anchor.x + 40, anchor.y);
+  ctx.moveTo(baseEnd0.x - (p.Ltr*scale + 60), baseEnd0.y);
+  ctx.lineTo(baseEnd0.x + 40, baseEnd0.y);
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // current centreline (dashed red) through baseEnd
   ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.setLineDash([5,5]);
   ctx.beginPath();
-  ctx.moveTo(anchor.x, anchor.y);
-  ctx.lineTo(anchor.x + ux*(p.Ltr+1)*scale, anchor.y + uy*(p.Ltr+1)*scale);
+  ctx.moveTo(baseEnd.x, baseEnd.y);
+  ctx.lineTo(baseEnd.x + ux*(p.Ltr+1)*scale, baseEnd.y + uy*(p.Ltr+1)*scale);
   ctx.stroke(); ctx.setLineDash([]);
 
+  // body outline (rounded nose)
   const radius = Math.max(0.6*scale, p.offset*scale*0.8);
   const Lbody = p.Ltr + 0.3*p.Ltr;
-  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
-  const nose = {x: anchor.x + ux*Lbody*scale, y: anchor.y + uy*Lbody*scale};
-  ctx.strokeStyle = '#d1d5db';
+  const nose = {x: baseEnd.x + ux*Lbody*scale, y: baseEnd.y + uy*Lbody*scale};
+
+  ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(anchor.x + vx*radius, anchor.y + vy*radius);
-  ctx.lineTo(nose.x + vx*radius, nose.y + vy*radius);
+  ctx.moveTo(baseEnd.x + vx*radius, baseEnd.y + vy*radius);
+  ctx.lineTo(nose.x    + vx*radius, nose.y    + vy*radius);
   ctx.arc(nose.x, nose.y, radius, Math.atan2(vy,vx), Math.atan2(-vy,-vx));
-  ctx.lineTo(anchor.x - vx*radius, anchor.y - vy*radius);
+  ctx.lineTo(baseEnd.x - vx*radius, baseEnd.y - vy*radius);
   ctx.stroke();
 
+  // taillug triangle at the true pivot
   ctx.strokeStyle = '#111';
   ctx.beginPath();
-  const lugA = {x: anchor.x, y: anchor.y};
-  const lugB = {x: anchor.x + vx*radius*0.9, y: anchor.y + vy*radius*0.9};
-  const lugC = {x: anchor.x - vx*radius*0.9, y: anchor.y - vy*radius*0.9};
-  ctx.moveTo(lugA.x,lugA.y); ctx.lineTo(lugB.x,lugB.y); ctx.lineTo(lugC.x,lugC.y); ctx.closePath(); ctx.stroke();
+  const lugB = {x: pivot.x + vx*radius*0.9, y: pivot.y + vy*radius*0.9};
+  const lugC = {x: pivot.x - vx*radius*0.9, y: pivot.y - vy*radius*0.9};
+  ctx.moveTo(pivot.x,pivot.y); ctx.lineTo(lugB.x,lugB.y); ctx.lineTo(lugC.x,lugC.y); ctx.closePath(); ctx.stroke();
 
-  const P_tr = {x: anchor.x + ux*p.Ltr*scale, y: anchor.y + uy*p.Ltr*scale};
-  const P_cg = {x: anchor.x + ux*p.Lcg*scale, y: anchor.y + uy*p.Lcg*scale};
-
+  // markers: Trunnions & C.o.G (on centreline from baseEnd)
+  const P_tr = {x: baseEnd.x + ux*p.Ltr*scale, y: baseEnd.y + uy*p.Ltr*scale};
+  const P_cg = {x: baseEnd.x + ux*p.Lcg*scale, y: baseEnd.y + uy*p.Lcg*scale};
   ctx.fillStyle = '#111';
   ctx.beginPath(); ctx.arc(P_tr.x,P_tr.y,4,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,2,0,Math.PI*2); ctx.fill();
 
+  // hook→hook dimension from pivot to trunnions
   ctx.strokeStyle = '#64748b'; ctx.setLineDash([3,3]);
-  ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(P_tr.x,P_tr.y); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(pivot.x, pivot.y); ctx.lineTo(P_tr.x,P_tr.y); ctx.stroke(); ctx.setLineDash([]);
 
+  // angle arc centred at pivot
   const arcR = 40; ctx.strokeStyle = '#111';
-  ctx.beginPath(); ctx.arc(anchor.x, anchor.y, arcR, 0, -ang, ang<0);
+  ctx.beginPath(); ctx.arc(pivot.x, pivot.y, arcR, 0, -ang, ang<0);
   ctx.stroke();
   ctx.font = '12px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
-  ctx.fillText(`${r.deg.toFixed(0)}°`, anchor.x + 8, anchor.y - 8);
+  ctx.fillText(`${r.deg.toFixed(0)}°`, pivot.x + 8, pivot.y - 8);
 
+  // labels
   ctx.font = '11px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
-  ctx.fillText('Taillug', anchor.x+6, anchor.y+14);
+  ctx.fillText('Taillug (pivot)', pivot.x+6, pivot.y+14);
   ctx.fillText('Trunnions', P_tr.x-30, P_tr.y-8);
   ctx.fillText('C.o.G', P_cg.x-18, P_cg.y-8);
 }
