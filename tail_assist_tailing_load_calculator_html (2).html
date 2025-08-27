@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TailAssist – Tailing Load Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html,body{height:100%}
+    .card{border-radius:1rem; box-shadow:0 10px 20px rgba(0,0,0,.08)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    @media print{.no-print{display:none!important} .card{box-shadow:none;border:1px solid #999}}
+    canvas{image-rendering: crisp-edges}
+  </style>
+</head>
+<body class="bg-zinc-50 text-zinc-900">
+  <div class="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+    <!-- Header -->
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">TailAssist – Tailing Load Calculator</h1>
+        <p class="text-sm text-zinc-600">Angle‑driven split of load between Maincrane and Tailcrane, with live geometry.</p>
+      </div>
+      <button id="printBtn" class="no-print rounded-xl px-4 py-2 text-sm bg-zinc-900 text-white hover:bg-black">Print / PDF</button>
+    </header>
+
+    <!-- Inputs -->
+    <section class="grid lg:grid-cols-2 gap-6">
+      <div class="card bg-white p-4 sm:p-6 space-y-5">
+        <h2 class="text-lg font-semibold">Inputs</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm col-span-2 font-medium">Vessel Weight <span class="text-zinc-500">[t]</span>
+            <input id="W" type="number" step="0.001" value="15" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          </label>
+
+          <label class="text-sm col-span-2 font-medium">Distance Taillug → C.o.G. <span class="text-zinc-500">[m]</span>
+            <input id="Lcg" type="number" step="0.001" value="8.014" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          </label>
+          
+          <label class="text-sm col-span-2 font-medium">Distance Taillug → Trunnions <span class="text-zinc-500">[m]</span>
+            <input id="Ltr" type="number" step="0.001" value="9.061" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          </label>
+
+          <label class="text-sm col-span-2 font-medium">Distance Centreline → Taillug (offset) <span class="text-zinc-500">[m]</span>
+            <input id="offset" type="number" step="0.001" value="2.02" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          </label>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-6">
+          <!-- Maincrane extras -->
+          <div>
+            <h3 class="font-medium mb-2">Maincrane Extras <span class="text-xs text-zinc-500">[t]</span></h3>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hook block</span><input id="m_hook" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hoist wires</span><input id="m_wires" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Rigging</span><input id="m_rig" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Runner & block</span><input id="m_runner" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2 pt-1">
+                <span class="w-36 text-sm font-medium">Total</span>
+                <output id="m_total" class="text-sm font-semibold">0.000</output>
+              </div>
+            </div>
+          </div>
+          <!-- Tailcrane extras -->
+          <div>
+            <h3 class="font-medium mb-2">Tailcrane Extras <span class="text-xs text-zinc-500">[t]</span></h3>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hook block</span><input id="t_hook" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hoist wires</span><input id="t_wires" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Rigging</span><input id="t_rig" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm">Runner & block</span><input id="t_runner" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2 pt-1">
+                <span class="w-36 text-sm font-medium">Total</span>
+                <output id="t_total" class="text-sm font-semibold">0.000</output>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <label class="text-sm font-medium">Maincrane Capacity (SWL) <span class="text-zinc-500">[t]</span>
+            <input id="SWL_main" type="number" step="0.001" value="20" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          </label>
+          <label class="text-sm font-medium">Tailcrane Capacity (SWL) <span class="text-zinc-500">[t]</span>
+            <input id="SWL_tail" type="number" step="0.001" value="5" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          </label>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4 items-end">
+          <label class="text-sm font-medium">Angle 
+            <input id="angle" type="range" min="0" max="90" step="1" value="0" class="mt-2 w-full" />
+          </label>
+          <div class="flex items-center gap-3">
+            <span class="text-sm">Step</span>
+            <input id="step" type="number" min="1" max="30" step="1" value="5" class="w-20 rounded-lg border border-zinc-300 px-3 py-2" />
+            <button id="recalc" class="rounded-xl px-4 py-2 bg-sky-600 text-white text-sm hover:bg-sky-700">Recalculate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live geometry + summary -->
+      <div class="grid gap-6">
+        <div class="card bg-white p-4 sm:p-6">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold">Geometry</h2>
+            <div class="text-sm text-zinc-600"><span id="angleOut">0</span>°</div>
+          </div>
+          <canvas id="geom" width="800" height="340" class="w-full rounded-xl border border-zinc-200 bg-white"></canvas>
+          <p class="mt-2 text-xs text-zinc-500">Schematic only. Grey = reference; red dashed = centreline; key points (◉) mark Trunnions and C.o.G; right end is Taillug.</p>
+        </div>
+
+        <div class="card bg-white p-4 sm:p-6">
+          <h2 class="text-lg font-semibold mb-3">Current Angle Results</h2>
+          <div class="grid sm:grid-cols-3 gap-4 text-sm">
+            <div class="space-y-1">
+              <div class="text-zinc-500">Hook‑to‑Hook distance</div>
+              <div class="font-semibold"><span id="h2h_m">0.000</span> m  ·  <span id="h2h_ft">0.000</span> ft</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-zinc-500">Maincrane</div>
+              <div class="font-semibold"><span id="main_t">0.000</span> t (<span id="main_kip">0.000</span> kip) – <span id="main_pct">0.0</span>% of SWL</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-zinc-500">Tailcrane</div>
+              <div class="font-semibold"><span id="tail_t">0.000</span> t (<span id="tail_kip">0.000</span> kip) – <span id="tail_pct">0.0</span>% of SWL</div>
+            </div>
+          </div>
+          <hr class="my-4">
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <div>Max Maincrane load in range: <span class="font-semibold" id="main_max">–</span> t (<span id="main_max_pct">–</span>% SWL)</div>
+            <div>Max Tailcrane load in range: <span class="font-semibold" id="tail_max">–</span> t (<span id="tail_max_pct">–</span>% SWL)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Table & plots -->
+    <section class="card bg-white p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Angle Sweep</h2>
+        <div class="text-sm text-zinc-600">0° → 90° in chosen step</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left border-b">
+              <th class="py-2 pr-3">Angle [°]</th>
+              <th class="py-2 pr-3">Hook→Hook [m]</th>
+              <th class="py-2 pr-3">Main [t]</th>
+              <th class="py-2 pr-3">Main [%SWL]</th>
+              <th class="py-2 pr-3">Tail [t]</th>
+              <th class="py-2 pr-3">Tail [%SWL]</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="grid md:grid-cols-2 gap-6 mt-6">
+        <canvas id="chartMain" height="220" class="w-full rounded-xl border border-zinc-200"></canvas>
+        <canvas id="chartTail" height="220" class="w-full rounded-xl border border-zinc-200"></canvas>
+      </div>
+    </section>
+
+    <footer class="pb-8 text-xs text-zinc-500">
+      <p>All values in metric tonnes [t] unless noted. 1 t = 2.20462 kip.</p>
+    </footer>
+  </div>
+
+<script>
+// --- Core math exactly per sheet logic ---
+// kip conversion (t -> kip)
+const T2KIP = 1/0.45359237; // ≈ 2.20462
+const M2FT = 3.280839895;   // m → ft
+
+function sum(arr){ return arr.reduce((a,b)=>a + (Number(b)||0), 0); }
+function rad(deg){ return deg * Math.PI/180; }
+
+function calcAtAngle(deg, p){
+  const c = Math.cos(rad(deg));
+  const s = Math.sin(rad(deg));
+  // Hook-to-hook distance [m]
+  const h2h = c*p.Ltr + s*p.offset; // Bxx formula
+  // Maincrane load [t]
+  const numerator = p.W * (c*p.Lcg + s*p.offset);
+  const denominator = (c*p.Ltr) + (s*p.offset);
+  const main = (numerator/denominator) + p.m_total; // Dxx formula
+  // Tailcrane load [t]
+  const tail = p.W - main + p.t_total + p.m_total; // Gxx formula
+  // Percentages of SWL
+  const mainPct = (main / p.SWL_main) * 100;
+  const tailPct = (tail / p.SWL_tail) * 100;
+  return {deg, h2h, main, tail, mainPct, tailPct};
+}
+
+function getParams(){
+  const p = {
+    W:       Number(document.getElementById('W').value)||0,
+    Lcg:     Number(document.getElementById('Lcg').value)||0,
+    Ltr:     Number(document.getElementById('Ltr').value)||0,
+    offset:  Number(document.getElementById('offset').value)||0,
+    m_total: 0,
+    t_total: 0,
+    SWL_main: Number(document.getElementById('SWL_main').value)||1,
+    SWL_tail: Number(document.getElementById('SWL_tail').value)||1,
+  };
+  const m = [
+    document.getElementById('m_hook').value,
+    document.getElementById('m_wires').value,
+    document.getElementById('m_rig').value,
+    document.getElementById('m_runner').value,
+  ];
+  const t = [
+    document.getElementById('t_hook').value,
+    document.getElementById('t_wires').value,
+    document.getElementById('t_rig').value,
+    document.getElementById('t_runner').value,
+  ];
+  p.m_total = sum(m);
+  p.t_total = sum(t);
+  document.getElementById('m_total').textContent = p.m_total.toFixed(3);
+  document.getElementById('t_total').textContent = p.t_total.toFixed(3);
+  return p;
+}
+
+function sweepAngles(p, step){
+  const out = [];
+  for(let deg=0; deg<=90; deg+=step){ out.push(calcAtAngle(deg, p)); }
+  if(out[out.length-1].deg !== 90) out.push(calcAtAngle(90, p));
+  return out;
+}
+
+function updateCurrent(p){
+  const ang = Number(document.getElementById('angle').value)||0;
+  const r = calcAtAngle(ang, p);
+  document.getElementById('angleOut').textContent = r.deg.toFixed(0);
+  document.getElementById('h2h_m').textContent = r.h2h.toFixed(3);
+  document.getElementById('h2h_ft').textContent = (r.h2h*M2FT).toFixed(3);
+  document.getElementById('main_t').textContent = r.main.toFixed(3);
+  document.getElementById('main_kip').textContent = (r.main*T2KIP).toFixed(3);
+  document.getElementById('tail_t').textContent = r.tail.toFixed(3);
+  document.getElementById('tail_kip').textContent = (r.tail*T2KIP).toFixed(3);
+  document.getElementById('main_pct').textContent = r.mainPct.toFixed(1);
+  document.getElementById('tail_pct').textContent = r.tailPct.toFixed(1);
+  drawGeometry(p, r);
+}
+
+function updateTableAndMax(p){
+  const step = Math.max(1, Math.min(30, Number(document.getElementById('step').value)||5));
+  const list = sweepAngles(p, step);
+  const tb = document.getElementById('tableBody');
+  tb.innerHTML = '';
+  let mainMax = -Infinity, tailMax = -Infinity;
+  list.forEach(r => {
+    mainMax = Math.max(mainMax, r.main);
+    tailMax = Math.max(tailMax, r.tail);
+    const tr = document.createElement('tr');
+    tr.className = 'border-b hover:bg-zinc-50';
+    tr.innerHTML = `
+      <td class="py-1.5 pr-3">${r.deg.toFixed(0)}</td>
+      <td class="py-1.5 pr-3">${r.h2h.toFixed(3)}</td>
+      <td class="py-1.5 pr-3">${r.main.toFixed(3)}</td>
+      <td class="py-1.5 pr-3">${r.mainPct.toFixed(1)}</td>
+      <td class="py-1.5 pr-3">${r.tail.toFixed(3)}</td>
+      <td class="py-1.5 pr-3">${r.tailPct.toFixed(1)}</td>`;
+    tr.addEventListener('click',()=>{ document.getElementById('angle').value = r.deg; updateAll(); });
+    tb.appendChild(tr);
+  });
+  document.getElementById('main_max').textContent = mainMax.toFixed(3);
+  document.getElementById('tail_max').textContent = tailMax.toFixed(3);
+  document.getElementById('main_max_pct').textContent = ((mainMax / p.SWL_main)*100).toFixed(1);
+  document.getElementById('tail_max_pct').textContent = ((tailMax / p.SWL_tail)*100).toFixed(1);
+  drawCharts(list);
+}
+
+// --- Simple line charts (no external libs) ---
+function drawCharts(list){
+  drawLineChart(document.getElementById('chartMain'), list.map(r=>({x:r.deg,y:r.main})), 'Maincrane [t] vs Angle');
+  drawLineChart(document.getElementById('chartTail'), list.map(r=>({x:r.deg,y:r.tail})), 'Tailcrane [t] vs Angle');
+}
+
+function drawLineChart(canvas, pts, title){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.clientWidth; const H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  // margins
+  const m = {l:40, r:10, t:20, b:26};
+  const xMin = 0, xMax = 90;
+  const yMin = 0, yMax = Math.max(...pts.map(p=>p.y))*1.1 || 1;
+  // axes
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(m.l, H-m.b); ctx.lineTo(W-m.r, H-m.b); // x
+  ctx.moveTo(m.l, H-m.b); ctx.lineTo(m.l, m.t); // y
+  ctx.stroke();
+  // ticks
+  ctx.font = '11px ui-sans-serif, system-ui, -apple-system'; ctx.fillStyle = '#111';
+  for(let x=0;x<=90;x+=15){
+    const X = m.l + (x-xMin)/(xMax-xMin)*(W-m.l-m.r);
+    ctx.beginPath(); ctx.moveTo(X,H-m.b); ctx.lineTo(X,H-m.b+4); ctx.stroke();
+    ctx.fillText(x.toString(), X-6, H-m.b+16);
+  }
+  const ySteps = 5;
+  for(let i=0;i<=ySteps;i++){
+    const y = yMin + (i*(yMax-yMin)/ySteps);
+    const Y = m.t + (1-(y-yMin)/(yMax-yMin))*(H-m.t-m.b);
+    ctx.beginPath(); ctx.moveTo(m.l-4,Y); ctx.lineTo(m.l,Y); ctx.stroke();
+    ctx.fillText(y.toFixed(0), m.l-34, Y+4);
+  }
+  // title
+  ctx.fillText(title, m.l, m.t-6);
+  // line
+  ctx.beginPath();
+  pts.forEach((p,i)=>{
+    const X = m.l + (p.x-xMin)/(xMax-xMin)*(W-m.l-m.r);
+    const Y = m.t + (1-(p.y-yMin)/(yMax-yMin))*(H-m.t-m.b);
+    if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+  });
+  ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+// --- Geometry canvas ---
+function drawGeometry(p, r){
+  const cv = document.getElementById('geom');
+  const ctx = cv.getContext('2d');
+  const W = cv.width = cv.clientWidth; const H = cv.height;
+  ctx.clearRect(0,0,W,H);
+
+  // world scale: compress lengths into canvas nicely
+  const maxAxis = Math.max(p.Ltr*1.15, p.Lcg*1.15, 10);
+  const scale = (W*0.75)/maxAxis; // px per metre
+
+  // anchor Taillug at right
+  const anchor = {x: W-60, y: H/2};
+  const ang = rad(r.deg);
+  const ux = -Math.cos(ang), uy = -Math.sin(ang); // axis unit vector from Taillug towards vessel left
+  const vx = -uy, vy = ux;                         // normal (upward from centreline)
+
+  // draw base reference (grey, horizontal)
+  ctx.setLineDash([6,6]);
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(anchor.x - p.Ltr*scale, anchor.y); ctx.lineTo(anchor.x + 40, anchor.y); // ref centreline
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // dashed red centreline current
+  ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.setLineDash([5,5]);
+  ctx.beginPath();
+  ctx.moveTo(anchor.x, anchor.y);
+  ctx.lineTo(anchor.x + ux*(p.Ltr+1)*scale, anchor.y + uy*(p.Ltr+1)*scale);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // draw cylinder body (simple rectangle with rounded nose)
+  const radius = Math.max(0.6*scale, p.offset*scale*0.8);
+  const Lbody = p.Ltr + 0.3*p.Ltr; // visual extension
+  // side edges
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const nose = {x: anchor.x + ux*Lbody*scale, y: anchor.y + uy*Lbody*scale};
+  // body outline (thin grey)
+  ctx.strokeStyle = '#d1d5db';
+  ctx.beginPath();
+  ctx.moveTo(anchor.x + vx*radius, anchor.y + vy*radius);
+  ctx.lineTo(nose.x + vx*radius, nose.y + vy*radius);
+  ctx.arc(nose.x, nose.y, radius, Math.atan2(vy,vx), Math.atan2(-vy,-vx));
+  ctx.lineTo(anchor.x - vx*radius, anchor.y - vy*radius);
+  ctx.stroke();
+
+  // taillug triangle (schematic)
+  ctx.strokeStyle = '#111';
+  ctx.beginPath();
+  const lugA = {x: anchor.x, y: anchor.y};
+  const lugB = {x: anchor.x + vx*radius*0.9, y: anchor.y + vy*radius*0.9};
+  const lugC = {x: anchor.x - vx*radius*0.9, y: anchor.y - vy*radius*0.9};
+  ctx.moveTo(lugA.x,lugA.y); ctx.lineTo(lugB.x,lugB.y); ctx.lineTo(lugC.x,lugC.y); ctx.closePath(); ctx.stroke();
+
+  // markers: Trunnions (●) and C.o.G (◉)
+  const P_tr = {x: anchor.x + ux*p.Ltr*scale, y: anchor.y + uy*p.Ltr*scale};
+  const P_cg = {x: anchor.x + ux*p.Lcg*scale, y: anchor.y + uy*p.Lcg*scale};
+
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(P_tr.x,P_tr.y,4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,2,0,Math.PI*2); ctx.fill();
+
+  // dimension: Hook→Hook (from anchor to trunnions projected along axis)
+  ctx.strokeStyle = '#64748b'; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(P_tr.x,P_tr.y); ctx.stroke(); ctx.setLineDash([]);
+
+  // angle arc
+  const arcR = 40; ctx.strokeStyle = '#111';
+  ctx.beginPath(); ctx.arc(anchor.x, anchor.y, arcR, 0, -ang, ang<0);
+  ctx.stroke();
+  ctx.font = '12px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
+  ctx.fillText(`${r.deg.toFixed(0)}°`, anchor.x + 8, anchor.y - 8);
+
+  // labels
+  ctx.font = '11px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
+  ctx.fillText('Taillug', anchor.x+6, anchor.y+14);
+  ctx.fillText('Trunnions', P_tr.x-30, P_tr.y-8);
+  ctx.fillText('C.o.G', P_cg.x-18, P_cg.y-8);
+}
+
+function updateAll(){
+  const p = getParams();
+  updateCurrent(p);
+  updateTableAndMax(p);
+}
+
+// Events
+['W','Lcg','Ltr','offset','m_hook','m_wires','m_rig','m_runner','t_hook','t_wires','t_rig','t_runner','SWL_main','SWL_tail','step']
+  .forEach(id => document.getElementById(id).addEventListener('input', updateAll));
+
+document.getElementById('angle').addEventListener('input', ()=>{ updateCurrent(getParams()); });
+
+document.getElementById('recalc').addEventListener('click', updateAll);
+
+document.getElementById('printBtn').addEventListener('click', ()=>window.print());
+
+// init
+updateAll();
+</script>
+</body>
+</html>
