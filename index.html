@@ -6,86 +6,102 @@
   <title>TailAssist – Tailing Load Calculator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    :root{
+      --bg:#0b1220; --card:#0f172a; --card2:#0b152e; --muted:#94a3b8; --text:#e5e7eb;
+      --line:#1f2a44; --accent:#67e8f9; --good:#10b981; --warn:#eab308; --bad:#ef4444;
+      --purple:#a78bfa; --green:#34d399; --blue:#3b82f6; --border:#1e293b;
+    }
     html,body{height:100%}
-    .card{border-radius:1rem; box-shadow:0 10px 20px rgba(0,0,0,.08)}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
-    @media print{.no-print{display:none!important} .card{box-shadow:none;border:1px solid #999}}
-    canvas{image-rendering: crisp-edges}
-    /* SWL over-limit flags */
+    body{background:var(--bg); color:var(--text)}
+    .card{border-radius:1rem; background:var(--card); box-shadow:0 10px 20px rgba(0,0,0,.25); border:1px solid var(--border)}
+    .muted{color:var(--muted)}
+    .btn{background:#0b1220; border:1px solid var(--border); color:var(--text)}
+    .btn:hover{background:#0a0f1b}
+    .accent{color:var(--accent)}
+    .tag{background:rgba(103,232,249,.12); color:var(--accent); border:1px solid rgba(103,232,249,.25)}
+    .field{background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:.75rem; padding:.55rem .8rem}
+    .field:focus{outline:none; box-shadow:0 0 0 2px rgba(103,232,249,.35)}
+    input[type="range"]{accent-color:var(--accent)}
+    table{border-collapse:collapse}
+    thead th{color:var(--muted); border-bottom:1px solid var(--border)}
+    tbody td{border-bottom:1px solid var(--border)}
     .bad{background:#dc2626;color:#fff;border-radius:.375rem;padding:0 .35rem}
-    .badcell{background:#dc2626;color:#fff;font-weight:600}
+    .badcell{background:#7f1d1d;color:#fff;font-weight:600}
+    .pill{border:1px solid var(--border); background:var(--card2); color:var(--muted); border-radius:.75rem; padding:.25rem .6rem}
+    canvas{image-rendering: crisp-edges; background:var(--card2)}
+    @media print{.no-print{display:none!important} .card{box-shadow:none;border:1px solid #666}}
   </style>
 </head>
-<body class="bg-zinc-50 text-zinc-900">
+<body>
   <div class="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
     <!-- Header -->
     <header class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">TailAssist – Tailing Load Calculator</h1>
-        <p class="text-sm text-zinc-600">Angle-driven split of load between Maincrane and Tailcrane, with live geometry.</p>
+        <p class="text-sm muted">Angle-driven split of load between Maincrane and Tailcrane, with live geometry.</p>
       </div>
-      <button id="printBtn" class="no-print rounded-xl px-4 py-2 text-sm bg-zinc-900 text-white hover:bg-black">Print / PDF</button>
+      <button id="printBtn" class="no-print rounded-xl px-4 py-2 text-sm btn">Print / PDF</button>
     </header>
 
     <!-- Inputs -->
     <section class="grid lg:grid-cols-2 gap-6">
-      <div class="card bg-white p-4 sm:p-6 space-y-5">
+      <div class="card p-4 sm:p-6 space-y-5">
         <h2 class="text-lg font-semibold">Inputs</h2>
         <div class="grid grid-cols-2 gap-3">
-          <label class="text-sm col-span-2 font-medium">Vessel Weight <span class="text-zinc-500">[t]</span>
-            <input id="W" type="number" step="0.001" value="15" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          <label class="text-sm col-span-2 font-medium">Vessel Weight <span class="muted">[t]</span>
+            <input id="W" type="number" step="0.001" value="15" class="mt-1 w-full field" />
           </label>
 
-          <label class="text-sm col-span-2 font-medium">Distance Taillug → C.o.G. <span class="text-zinc-500">[m]</span>
-            <input id="Lcg" type="number" step="0.001" value="8.014" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          <label class="text-sm col-span-2 font-medium">Distance Taillug → C.o.G. <span class="muted">[m]</span>
+            <input id="Lcg" type="number" step="0.001" value="8.014" class="mt-1 w-full field" />
           </label>
           
-          <label class="text-sm col-span-2 font-medium">Distance Taillug → Trunnions <span class="text-zinc-500">[m]</span>
-            <input id="Ltr" type="number" step="0.001" value="9.061" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          <label class="text-sm col-span-2 font-medium">Distance Taillug → Trunnions <span class="muted">[m]</span>
+            <input id="Ltr" type="number" step="0.001" value="9.061" class="mt-1 w-full field" />
           </label>
 
-          <label class="text-sm col-span-2 font-medium">Distance Centreline → Taillug (offset) <span class="text-zinc-500">[m]</span>
-            <input id="offset" type="number" step="0.001" value="2.02" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          <label class="text-sm col-span-2 font-medium">Distance Centreline → Taillug (offset) <span class="muted">[m]</span>
+            <input id="offset" type="number" step="0.001" value="2.02" class="mt-1 w-full field" />
           </label>
         </div>
 
         <div class="grid sm:grid-cols-2 gap-6">
           <!-- Maincrane extras -->
           <div>
-            <h3 class="font-medium mb-2">Maincrane Extras <span class="text-xs text-zinc-500">[t]</span></h3>
+            <h3 class="font-medium mb-2">Maincrane Extras <span class="text-xs muted">[t]</span></h3>
             <div class="space-y-2">
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hook block</span><input id="m_hook" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hoist wires</span><input id="m_wires" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Rigging</span><input id="m_rig" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Runner & block</span><input id="m_runner" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Hook block</span><input id="m_hook" type="number" step="0.001" value="0" class="flex-1 field"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Hoist wires</span><input id="m_wires" type="number" step="0.001" value="0" class="flex-1 field"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Rigging</span><input id="m_rig" type="number" step="0.001" value="0" class="flex-1 field"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Runner & block</span><input id="m_runner" type="number" step="0.001" value="0" class="flex-1 field"/></div>
               <div class="flex items-center gap-2 pt-1">
                 <span class="w-36 text-sm font-medium">Total</span>
-                <output id="m_total" class="text-sm font-semibold">0.000</output>
+                <output id="m_total" class="text-sm font-semibold accent">0.000</output>
               </div>
             </div>
           </div>
           <!-- Tailcrane extras -->
           <div>
-            <h3 class="font-medium mb-2">Tailcrane Extras <span class="text-xs text-zinc-500">[t]</span></h3>
+            <h3 class="font-medium mb-2">Tailcrane Extras <span class="text-xs muted">[t]</span></h3>
             <div class="space-y-2">
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hook block</span><input id="t_hook" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Hoist wires</span><input id="t_wires" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Rigging</span><input id="t_rig" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
-              <div class="flex items-center gap-2"><span class="w-36 text-sm">Runner & block</span><input id="t_runner" type="number" step="0.001" value="0" class="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Hook block</span><input id="t_hook" type="number" step="0.001" value="0" class="flex-1 field"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Hoist wires</span><input id="t_wires" type="number" step="0.001" value="0" class="flex-1 field"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Rigging</span><input id="t_rig" type="number" step="0.001" value="0" class="flex-1 field"/></div>
+              <div class="flex items-center gap-2"><span class="w-36 text-sm muted">Runner & block</span><input id="t_runner" type="number" step="0.001" value="0" class="flex-1 field"/></div>
               <div class="flex items-center gap-2 pt-1">
                 <span class="w-36 text-sm font-medium">Total</span>
-                <output id="t_total" class="text-sm font-semibold">0.000</output>
+                <output id="t_total" class="text-sm font-semibold accent">0.000</output>
               </div>
             </div>
           </div>
         </div>
 
         <div class="grid sm:grid-cols-2 gap-4">
-          <label class="text-sm font-medium">Maincrane Capacity (SWL) <span class="text-zinc-500">[t]</span>
-            <input id="SWL_main" type="number" step="0.001" value="20" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          <label class="text-sm font-medium">Maincrane Capacity (SWL) <span class="muted">[t]</span>
+            <input id="SWL_main" type="number" step="0.001" value="20" class="mt-1 w-full field" />
           </label>
-          <label class="text-sm font-medium">Tailcrane Capacity (SWL) <span class="text-zinc-500">[t]</span>
-            <input id="SWL_tail" type="number" step="0.001" value="5" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" />
+          <label class="text-sm font-medium">Tailcrane Capacity (SWL) <span class="muted">[t]</span>
+            <input id="SWL_tail" type="number" step="0.001" value="5" class="mt-1 w-full field" />
           </label>
         </div>
 
@@ -94,41 +110,41 @@
             <input id="angle" type="range" min="0" max="90" step="1" value="0" class="mt-2 w-full" />
           </label>
           <div class="flex items-center gap-3">
-            <span class="text-sm">Step</span>
-            <input id="step" type="number" min="1" max="30" step="1" value="5" class="w-20 rounded-lg border border-zinc-300 px-3 py-2" />
-            <button id="recalc" class="rounded-xl px-4 py-2 bg-sky-600 text-white text-sm hover:bg-sky-700">Recalculate</button>
+            <span class="text-sm muted">Step</span>
+            <input id="step" type="number" min="1" max="30" step="1" value="5" class="w-24 field" />
+            <button id="recalc" class="rounded-xl px-4 py-2 text-sm" style="background:var(--accent); color:#04151e;">Recalculate</button>
           </div>
         </div>
       </div>
 
       <!-- Live geometry + summary -->
       <div class="grid gap-6">
-        <div class="card bg-white p-4 sm:p-6">
+        <div class="card p-4 sm:p-6">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-semibold">Geometry</h2>
-            <div class="text-sm text-zinc-600"><span id="angleOut">0</span>°</div>
+            <div class="text-sm muted"><span id="angleOut">0</span>°</div>
           </div>
-          <canvas id="geom" width="800" height="340" class="w-full rounded-xl border border-zinc-200 bg-white"></canvas>
-          <p class="mt-2 text-xs text-zinc-500">Schematic only. Grey = reference; red dashed = centreline; key points (◉) mark Trunnions and C.o.G; right end is Taillug.</p>
+          <canvas id="geom" width="800" height="340" class="w-full rounded-xl border" style="border-color:var(--border)"></canvas>
+          <p class="mt-2 text-xs muted">Schematic only. Grey = reference; red dashed = centreline; key points (◉) mark Trunnions and C.o.G; right end is Taillug.</p>
         </div>
 
-        <div class="card bg-white p-4 sm:p-6">
+        <div class="card p-4 sm:p-6">
           <h2 class="text-lg font-semibold mb-3">Current Angle Results</h2>
           <div class="grid sm:grid-cols-3 gap-4 text-sm">
             <div class="space-y-1">
-              <div class="text-zinc-500">Hook-to-Hook distance</div>
+              <div class="muted">Hook-to-Hook distance</div>
               <div class="font-semibold"><span id="h2h_m">0.000</span> m  ·  <span id="h2h_ft">0.000</span> ft</div>
             </div>
             <div class="space-y-1">
-              <div class="text-zinc-500">Maincrane</div>
+              <div class="muted">Maincrane</div>
               <div class="font-semibold"><span id="main_t">0.000</span> t (<span id="main_kip">0.000</span> kip) – <span id="main_pct">0.0</span>% of SWL</div>
             </div>
             <div class="space-y-1">
-              <div class="text-zinc-500">Tailcrane</div>
+              <div class="muted">Tailcrane</div>
               <div class="font-semibold"><span id="tail_t">0.000</span> t (<span id="tail_kip">0.000</span> kip) – <span id="tail_pct">0.0</span>% of SWL</div>
             </div>
           </div>
-          <hr class="my-4">
+          <hr class="my-4 border-0" style="border-top:1px solid var(--border)">
           <div class="grid sm:grid-cols-2 gap-4 text-sm">
             <div>Max Maincrane load in range: <span class="font-semibold" id="main_max">–</span> t (<span id="main_max_pct">–</span>% SWL)</div>
             <div>Max Tailcrane load in range: <span class="font-semibold" id="tail_max">–</span> t (<span id="tail_max_pct">–</span>% SWL)</div>
@@ -138,33 +154,35 @@
     </section>
 
     <!-- Table & plots -->
-    <section class="card bg-white p-4 sm:p-6">
+    <section class="card p-4 sm:p-6">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold">Angle Sweep</h2>
-        <div class="text-sm text-zinc-600">0° → 90° in chosen step</div>
+        <div class="text-sm muted">0° → 90° in chosen step</div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="text-left border-b">
+            <tr class="text-left">
               <th class="py-2 pr-3">Angle [°]</th>
               <th class="py-2 pr-3">Hook→Hook [m]</th>
               <th class="py-2 pr-3">Main [t]</th>
-              <th class="py-2 pr-3">Main [%SWL]</th>
+              <th class="py-2 pr-3">%SWL (Main)</th>
               <th class="py-2 pr-3">Tail [t]</th>
-              <th class="py-2 pr-3">Tail [%SWL]</th>
+              <th class="py-2 pr-3">%SWL (Tail)</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
       <div class="grid md:grid-cols-2 gap-6 mt-6">
-        <canvas id="chartMain" height="220" class="w-full rounded-xl border border-zinc-200"></canvas>
-        <canvas id="chartTail" height="220" class="w-full rounded-xl border border-zinc-200"></canvas>
+        <div class="pill">Maincrane [t] vs Angle</div>
+        <div class="pill">Tailcrane [t] vs Angle</div>
+        <canvas id="chartMain" height="220" class="w-full rounded-xl border" style="border-color:var(--border)"></canvas>
+        <canvas id="chartTail" height="220" class="w-full rounded-xl border" style="border-color:var(--border)"></canvas>
       </div>
     </section>
 
-    <footer class="pb-8 text-xs text-zinc-500">
+    <footer class="pb-8 text-xs muted">
       <p>All values in metric tonnes [t] unless noted. 1 t = 2.20462 kip.</p>
     </footer>
   </div>
@@ -263,7 +281,7 @@ function updateTableAndMax(p){
     tailMax = Math.max(tailMax, r.tail);
 
     const tr = document.createElement('tr');
-    tr.className = 'border-b hover:bg-zinc-50';
+    tr.className = 'hover:bg-transparent';
     tr.innerHTML = `
       <td class="py-1.5 pr-3">${r.deg.toFixed(0)}</td>
       <td class="py-1.5 pr-3">${r.h2h.toFixed(3)}</td>
@@ -297,15 +315,20 @@ function drawLineChart(canvas, pts, title){
   const ctx = canvas.getContext('2d');
   const W = canvas.width = canvas.clientWidth; const H = canvas.height;
   ctx.clearRect(0,0,W,H);
-  const m = {l:40, r:10, t:20, b:26};
+  const m = {l:40, r:10, t:26, b:28};
   const xMin = 0, xMax = 90;
   const yMin = 0, yMax = Math.max(...pts.map(p=>p.y))*1.1 || 1;
-  ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+
+  // Axes
+  ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(m.l, H-m.b); ctx.lineTo(W-m.r, H-m.b);
   ctx.moveTo(m.l, H-m.b); ctx.lineTo(m.l, m.t);
   ctx.stroke();
-  ctx.font = '11px ui-sans-serif, system-ui, -apple-system'; ctx.fillStyle = '#111';
+
+  // Ticks + labels
+  ctx.font = '11px ui-sans-serif, system-ui, -apple-system'; 
+  ctx.fillStyle = '#cbd5e1';
   for(let x=0;x<=90;x+=15){
     const X = m.l + (x-xMin)/(xMax-xMin)*(W-m.l-m.r);
     ctx.beginPath(); ctx.moveTo(X,H-m.b); ctx.lineTo(X,H-m.b+4); ctx.stroke();
@@ -318,18 +341,20 @@ function drawLineChart(canvas, pts, title){
     ctx.beginPath(); ctx.moveTo(m.l-4,Y); ctx.lineTo(m.l,Y); ctx.stroke();
     ctx.fillText(y.toFixed(0), m.l-34, Y+4);
   }
-  ctx.fillText(title, m.l, m.t-6);
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText(title, m.l, m.t-8);
+
+  // Line
   ctx.beginPath();
   pts.forEach((p,i)=>{
     const X = m.l + (p.x-xMin)/(xMax-xMin)*(W-m.l-m.r);
     const Y = m.t + (1-(p.y-yMin)/(yMax-yMin))*(H-m.t-m.b);
     if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
   });
-  ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = '#67e8f9'; ctx.lineWidth = 2; ctx.stroke();
 }
 
 // --- Geometry canvas ---
-// PIVOT = TAILLUG (fixed). Centreline right end = pivot - v * offset.
 function drawGeometry(p, r){
   const cv = document.getElementById('geom');
   const ctx = cv.getContext('2d');
@@ -344,7 +369,7 @@ function drawGeometry(p, r){
   const pivot = {x: W-60, y: H/2};
 
   // unit vectors for current angle
-  const ang = rad(r.deg);
+  const ang = (r.deg*Math.PI/180);
   const ux = -Math.cos(ang), uy = -Math.sin(ang);   // along centreline (leftwards)
   const vx = -uy,           vy =  ux;               // normal (+v is "up" from centreline)
 
@@ -352,10 +377,10 @@ function drawGeometry(p, r){
   const baseEnd = { x: pivot.x - vx*p.offset*scale, y: pivot.y - vy*p.offset*scale };
 
   // grey reference centreline at 0°
-  const vx0 = 0, vy0 = -1; // normal at 0°
-  const baseEnd0 = { x: pivot.x - vx0*p.offset*scale, y: pivot.y - vy0*p.offset*scale }; // y = pivot.y + offset
+  const vx0 = 0, vy0 = -1; 
+  const baseEnd0 = { x: pivot.x - vx0*p.offset*scale, y: pivot.y - vy0*p.offset*scale };
   ctx.setLineDash([6,6]);
-  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1;
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(baseEnd0.x - (p.Ltr*scale + 60), baseEnd0.y);
   ctx.lineTo(baseEnd0.x + 40, baseEnd0.y);
@@ -374,7 +399,7 @@ function drawGeometry(p, r){
   const Lbody = p.Ltr + 0.3*p.Ltr;
   const nose = {x: baseEnd.x + ux*Lbody*scale, y: baseEnd.y + uy*Lbody*scale};
 
-  ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(baseEnd.x + vx*radius, baseEnd.y + vy*radius);
   ctx.lineTo(nose.x    + vx*radius, nose.y    + vy*radius);
@@ -383,32 +408,33 @@ function drawGeometry(p, r){
   ctx.stroke();
 
   // taillug triangle at the true pivot
-  ctx.strokeStyle = '#111';
+  ctx.strokeStyle = '#e5e7eb';
   ctx.beginPath();
   const lugB = {x: pivot.x + vx*radius*0.9, y: pivot.y + vy*radius*0.9};
   const lugC = {x: pivot.x - vx*radius*0.9, y: pivot.y - vy*radius*0.9};
   ctx.moveTo(pivot.x,pivot.y); ctx.lineTo(lugB.x,lugB.y); ctx.lineTo(lugC.x,lugC.y); ctx.closePath(); ctx.stroke();
 
-  // markers: Trunnions & C.o.G (on centreline from baseEnd)
+  // markers: Trunnions & C.o.G
   const P_tr = {x: baseEnd.x + ux*p.Ltr*scale, y: baseEnd.y + uy*p.Ltr*scale};
   const P_cg = {x: baseEnd.x + ux*p.Lcg*scale, y: baseEnd.y + uy*p.Lcg*scale};
-  ctx.fillStyle = '#111';
+  ctx.fillStyle = '#e5e7eb';
   ctx.beginPath(); ctx.arc(P_tr.x,P_tr.y,4,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(P_cg.x,P_cg.y,2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.strokeStyle = '#e5e7eb'; ctx.arc(P_cg.x,P_cg.y,5,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.fillStyle = '#e5e7eb'; ctx.arc(P_cg.x,P_cg.y,2,0,Math.PI*2); ctx.fill();
 
   // hook→hook dimension from pivot to trunnions
   ctx.strokeStyle = '#64748b'; ctx.setLineDash([3,3]);
   ctx.beginPath(); ctx.moveTo(pivot.x, pivot.y); ctx.lineTo(P_tr.x,P_tr.y); ctx.stroke(); ctx.setLineDash([]);
 
   // angle arc centred at pivot
-  const arcR = 40; ctx.strokeStyle = '#111';
+  const arcR = 40; ctx.strokeStyle = '#94a3b8';
   ctx.beginPath(); ctx.arc(pivot.x, pivot.y, arcR, 0, -ang, ang<0);
   ctx.stroke();
-  ctx.font = '12px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
+  ctx.font = '12px ui-sans-serif, system-ui'; ctx.fillStyle = '#94a3b8';
   ctx.fillText(`${r.deg.toFixed(0)}°`, pivot.x + 8, pivot.y - 8);
 
   // labels
-  ctx.font = '11px ui-sans-serif, system-ui'; ctx.fillStyle = '#111';
+  ctx.font = '11px ui-sans-serif, system-ui'; ctx.fillStyle = '#94a3b8';
   ctx.fillText('Taillug (pivot)', pivot.x+6, pivot.y+14);
   ctx.fillText('Trunnions', P_tr.x-30, P_tr.y-8);
   ctx.fillText('C.o.G', P_cg.x-18, P_cg.y-8);
